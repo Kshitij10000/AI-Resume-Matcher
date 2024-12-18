@@ -37,7 +37,7 @@ This project is an AI-driven application that assists in identifying the best ca
 
 1.  Clone this repository:
     ```bash
-    git clone https://github.com/your-username/your_project_name.git
+    git clone https://github.com/Kshitij10000/AI-Resume-Matcher.git
     ```
 2.  Create a virtual environment (recommended):
     ```bash
