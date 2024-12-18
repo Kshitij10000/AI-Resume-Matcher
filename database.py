@@ -2,6 +2,7 @@ import mysql.connector
 import json
 import os 
 
+# add your personal credentials here
 db_config = {
     'user': #user name,
     'password': #password,
