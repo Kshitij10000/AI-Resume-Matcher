@@ -3,7 +3,7 @@ from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_core.pydantic_v1 import BaseModel 
 from dotenv import load_dotenv
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from langchain_community.callbacks.manager import get_openai_callback
 
 load_dotenv()
@@ -35,6 +35,8 @@ class Certification(BaseModel):
 
 class StructuredResume(BaseModel):
     name: Optional[str] = None
+    email: Optional[str] = None 
+    phone: Optional[str] = None 
     address: Optional[str] = None  
     technical_skills: Optional[List[str]] = []
     soft_skills: Optional[List[str]] = []
@@ -87,7 +89,7 @@ give all outputs in propercase.
 
 Instructions: 
 
-1. Extract the candidate's name and address from the resume (if mentioned). 
+1. Extract the candidate's name, email, phone number and address from the resume (if mentioned). 
 
 2. Skills Extraction -  
 
@@ -200,6 +202,10 @@ Please populate the following data structure with the extracted information:
 
   "address": "",   
 
+  "email": "", 
+
+  "phone": "", 
+
   "technical_skills": [ 
     "" 
   ], 
@@ -264,14 +270,14 @@ prompt =  PromptTemplate(
 
 
 # Async function to structure resumes
-async def structure_resumes(resume_docs: Dict[str, str]) -> Dict[str, StructuredResume]:
+async def structure_resumes(resume_docs: Dict[str, Dict]) -> Tuple[Dict[str, BaseModel], float]:
     structured_resumes = {}
     with get_openai_callback() as rc:
         model = ChatOpenAI(temperature=0, model="gpt-3.5-turbo-0125")
         chain = prompt | model | parser
         
         # Create a list of dictionaries as needed for `abatch`
-        formatted_inputs = [{"resume": content.page_content} for filename, content in resume_docs.items()]
+        formatted_inputs = [{"resume": content} for filename, content in resume_docs.items()]
         
         # Processing each resume with the chain
         formatted_resumes = await chain.abatch(formatted_inputs)

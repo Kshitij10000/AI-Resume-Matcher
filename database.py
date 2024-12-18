@@ -1,13 +1,13 @@
 import mysql.connector
 import json
 import os 
+from datetime import datetime
 
-# add your personal credentials here
 db_config = {
-    'user': #user name,
-    'password': #password,
-    'host': #host,
-    'port': #port,
+    'user': 'admin',
+    'password': 'WHqqCKcpOa6PGQwKVIz3',
+    'host': 'cre-database.clskaom22sd7.us-east-1.rds.amazonaws.com',
+    'port': 3306,
     'database': 'cre'
 }
 
@@ -27,6 +27,48 @@ def insert_error_log(method_name, error_desc):
         conn.commit()
     except mysql.connector.Error as err:
         print(f"Failed to log error: {err}")
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+def check_user_in_database(username, password):
+    try:
+        with mysql.connector.connect(**db_config) as conn:
+            cursor = conn.cursor()
+            # Corrected the SQL query to use proper SQL syntax for WHERE conditions
+            cursor.execute("SELECT 1 FROM login_users WHERE username = %s AND password = %s", (username, password))
+            result = cursor.fetchone()
+            return bool(result)  # Returns True if user exists with the given username and password, False otherwise
+    except mysql.connector.Error as err:
+        insert_error_log("error is occurring while checking user credentials", str(err))
+        return None
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+
+
+def user_signup_input(name, username, email, password):
+    """Function to save user data into the database and handle exceptions."""
+    userdata_insert_query = """
+    INSERT INTO login_users (name, username, email, password, current_datetime, active)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    """
+    current_datetime = datetime.now()  # Get current datetime
+
+    user_data_tuple = (name, username, email, password, current_datetime, 1)
+    
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        cursor.execute(userdata_insert_query, user_data_tuple)
+        conn.commit()
+        return True  # Return True when signup is successful
+    except mysql.connector.Error as err:
+        if 'duplicate entry' in str(err).lower():  # Adjust the error check as per your DBMS
+            return False  # Return False if user already exists
+        else:
+            raise  # Re-raise the exception for any other errors
     finally:
         if conn.is_connected():
             cursor.close()
@@ -156,12 +198,14 @@ def insert_resume_data_into_db( data, fk_jd_id, report_data, file_path):
 
         # SQL query
         resume_insert_query = """
-        INSERT INTO resume_info (fk_jd_id, cand_name, address, role, technical_skills, soft_skills, similar_skills, missing_skills, preferable_skills, required_experience, score, recommendation, file_path, active, created_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+        INSERT INTO resume_info (fk_jd_id, cand_name, email, phone, address, role, technical_skills, soft_skills, similar_skills, missing_skills, preferable_skills, required_experience, score, recommendation, file_path, active, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
         """
         resume_data_tuple = (
             fk_jd_id,
             data['name'],
+            data['email'],
+            data['phone'],
             data['address'],
             report_data.get('role', None),
             technical_skills_str,
@@ -363,7 +407,7 @@ def process_resume_files(folder_path, jd_id, resumes_final_report, raw_resume_pa
 
 def get_feedback(feedback,fk_jd_id):
     feedback_query = """
-    INSERT INTO FEEDBACK_INFO(fk_jd_id, feedback_text, created_at)
+    INSERT INTO feedback_info(fk_jd_id, feedback_text, created_at)
     VALUES(%s, %s, NOW())
     """
     feedback_tuple = (
@@ -491,3 +535,42 @@ def get_fk_jd_id(jd_role):
         if conn.is_connected():
             cursor.close()
             conn.close()
+
+
+
+
+def extract_all_data_for_jd_id(jd_id):
+    try:
+        with mysql.connector.connect(**db_config) as conn:
+            cursor = conn.cursor()
+            # Updated SQL query without feedback info
+            query = """
+                SELECT
+                ri.id, ri.cand_name, ri.email, ri.phone, ri.address, ri.role,
+                ri.technical_skills, ri.soft_skills, ri.similar_skills,
+                ri.missing_skills, ri.preferable_skills, ri.required_experience,
+                ri.score, ri.recommendation, ri.file_path, ri.active, ri.created_at,
+                GROUP_CONCAT(DISTINCT pei.company_name SEPARATOR ', ') AS companies,
+                GROUP_CONCAT(DISTINCT pei.designation SEPARATOR ', ') AS designations,
+                GROUP_CONCAT(DISTINCT proj.project_name SEPARATOR ', ') AS projects,
+                GROUP_CONCAT(DISTINCT edu.degree_name SEPARATOR ', ') AS degrees,
+                GROUP_CONCAT(DISTINCT cert.certificate_name SEPARATOR ', ') AS certificates
+                FROM resume_info ri
+                LEFT JOIN professional_experience_info pei ON pei.fk_cand_id = ri.id AND pei.active = 1
+                LEFT JOIN projects_info proj ON proj.fk_cand_id = ri.id AND proj.active = 1
+                LEFT JOIN education_info edu ON edu.fk_cand_id = ri.id AND edu.active = 1
+                LEFT JOIN certification_info cert ON cert.fk_cand_id = ri.id AND cert.active = 1
+                WHERE ri.fk_jd_id = %s AND ri.active = 1
+                GROUP BY ri.id;
+
+            """
+            cursor.execute(query, (jd_id,))  # Pass jd_id as a tuple
+            result = cursor.fetchall()  # Use fetchall to get all matching rows
+            return result if result else None  
+    except mysql.connector.Error as err:
+        insert_error_log("error is occurring while extracting data for report", str(err))
+        return None
+    finally:
+        if cursor:  # Ensuring cursor is defined before trying to close it
+            cursor.close()# Ensure cursor is always closed; this is safe inside finally
+

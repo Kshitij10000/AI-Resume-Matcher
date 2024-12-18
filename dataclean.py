@@ -2,7 +2,7 @@ import re
 from spacy.lang.en.stop_words import STOP_WORDS
 import spacy
 
-model = spacy.load("en_core_web_lg")
+#model = spacy.load("en_core_web_lg")
           
 
 def get_phone_numbers(string):

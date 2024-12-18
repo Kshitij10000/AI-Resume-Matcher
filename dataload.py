@@ -33,8 +33,8 @@ def process_text_resumes(resume):
         for file_name in os.listdir(resume_raw_path):
             file_path = os.path.join(resume_raw_path, file_name)
             text = extract_text(file_path)
-            text.page_content = dataclean.clean_resume(text.page_content)
-            text.page_content = dataclean.remove_stopwords(text.page_content)
+           # text.page_content = dataclean.clean_resume(text.page_content)
+           # text.page_content = dataclean.remove_stopwords(text.page_content)
             resumes_docs[file_name] = text  # Store the processed Document object with the filename as key
 
         return resumes_docs, folder_path , resume_raw_path
@@ -43,6 +43,8 @@ def serialize_structured_resume(resume):
     """Converts a StructuredResume instance into a dictionary for JSON serialization."""
     return {
         'name': resume.name,
+        'email': resume.email,
+        'phone': resume.phone,
         'address': resume.address,
         'technical_skills': resume.technical_skills,
         'soft_skills': resume.soft_skills,
